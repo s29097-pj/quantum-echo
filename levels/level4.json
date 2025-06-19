@@ -1,0 +1,34 @@
+{
+    "platforms": [
+        { "x": 400, "y": 100, "width": 200, "height": 20 },
+        { "x": 200, "y": 250, "width": 150, "height": 20 },
+        { "x": 50, "y": 350, "width": 100, "height": 20, "moving": true, "move_range": 100 },
+        { "x": 250, "y": 450, "width": 100, "height": 20 },
+        { "x": 100, "y": 600, "width": 150, "height": 20 },
+        { "x": 50, "y": 720, "width": 200, "height": 20 },
+        { "x": 400, "y": 680, "width": 250, "height": 20 },
+        { "x": 700, "y": 280, "width": 100, "height": 20 },
+        { "x": 900, "y": 280, "width": 124, "height": 20 },
+        { "x": 900, "y": 150, "width": 124, "height": 20 }
+    ],
+    "temporal_platforms": [
+        { "x": 600, "y": 580, "width": 150, "height": 20, "initial_state": "solid" },
+        { "x": 750, "y": 480, "width": 150, "height": 20, "initial_state": "phased" },
+        { "x": 700, "y": 380, "width": 150, "height": 20, "initial_state": "solid" }
+    ],
+    "buttons": [
+        { "x": 150, "y": 700 }
+    ],
+    "hazards": [
+        { "x": 250, "y": 730, "width": 774, "height": 18 },
+        { "x": 250, "y": 432, "width": 100, "height": 18 },
+        { "x": 650, "y": 562, "width": 100, "height": 18 }
+    ],
+    "collectibles": [
+        { "x": 100, "y": 310, "type": "gem" },
+        { "x": 120, "y": 560, "type": "double_jump" },
+        { "x": 700, "y": 440, "type": "gem" }
+    ],
+    "start": { "x": 480, "y": 60 },
+    "end": { "x": 940, "y": 100 }
+}
