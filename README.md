@@ -152,18 +152,26 @@ Analiza: Ten kod jest doskonałym przykładem generowania proceduralnego, które
 
 
 ### Deterministyczna Losowość: 
-Kluczowym elementem jest linia random.seed(level_index). Ustawienie "ziarna" generatora liczb losowych na podstawie numeru poziomu sprawia, że dla danego poziomu tło będzie zawsze wyglądać tak samo, ale tła różnych poziomów będą się od siebie różnić.
-Dynamiczny Kolor Nieba: Kolor nieba nie jest stały. Jest losowany, co pozwala uzyskać różne odcienie, od głębokiego granatu po jaśniejszy błękit, nadając każdemu poziomowi unikalny nastrój.
+Kluczowym elementem jest linia **random.seed(level_index)**. Ustawienie "ziarna" generatora liczb losowych na podstawie numeru poziomu sprawia, że dla danego poziomu tło będzie zawsze wyglądać tak samo, ale tła różnych poziomów będą się od siebie różnić.
+
+### Dynamiczny Kolor Nieba: 
+Kolor nieba nie jest stały. Jest losowany, co pozwala uzyskać różne odcienie, od głębokiego granatu po jaśniejszy błękit, nadając każdemu poziomowi unikalny nastrój.
 Generowanie Gwiazd i Chmur: Pozycje, rozmiary i liczba gwiazd oraz chmur są losowane w określonych przedziałach. Co ważne, chmury otrzymują losową prędkość (speed), co jest później wykorzystywane do stworzenia efektu paralaksy – chmury na różnych planach poruszają się z różną prędkością względem gracza, co tworzy iluzję głębi.
-Efektywność: Takie podejście jest niezwykle wydajne. Zamiast wczytywać duże pliki graficzne, gra generuje całą scenerię w ułamku sekundy, używając jedynie kilku prostych operacji matematycznych.
+
+### Efektywność: 
+Takie podejście jest niezwykle wydajne. Zamiast wczytywać duże pliki graficzne, gra generuje całą scenerię w ułamku sekundy, używając jedynie kilku prostych operacji matematycznych.
 Wyzwania i Napotkane Problemy
 Podczas tworzenia projektu napotkano kilka kluczowych wyzwań:
 
 
 ### Implementacja Echa: 
-**Największym wyzwaniem** było efektywne przechowywanie i odtwarzanie historii ruchów gracza. Zastosowanie struktury collections.deque z ograniczoną długością (maxlen=ECHO_DELAY_FRAMES) okazało się idealnym rozwiązaniem, które jest wydajne i automatycznie zarządza "oknem czasowym" 10 sekund.
-Fizyka i Kolizje z Platformami Czasowymi: Obsługa kolizji z platformami, które mogą być materialne lub nie, wymagała dynamicznego podejścia. Problem rozwiązano przez stworzenie metody level.get_solid_platforms(), która w każdej klatce zwraca grupę tylko tych platform, z którymi można wejść w interakcję. Gracz sprawdza kolizje tylko z tą dynamicznie generowaną grupą.
-Zarządzanie Stanami Gry: Gra posiada wiele ekranów (menu, gra, pauza, ranking). Początkowo prowadziło to do skomplikowanych warunków if/else. Wprowadzenie Enum dla GameState i oparcie głównej pętli na tej maszynie stanów znacząco uprościło kod i uczyniło go bardziej czytelnym
+**Największym wyzwaniem** było efektywne przechowywanie i odtwarzanie historii ruchów gracza. Zastosowanie struktury **collections.deque** z ograniczoną długością **(maxlen=ECHO_DELAY_FRAMES)** okazało się idealnym rozwiązaniem, które jest wydajne i automatycznie zarządza "oknem czasowym" 10 sekund.
+Fizyka i Kolizje z Platformami Czasowymi: Obsługa kolizji z platformami, które mogą być materialne lub nie, wymagała dynamicznego podejścia. Problem rozwiązano przez stworzenie metody **level.get_solid_platforms()**, która w każdej klatce zwraca grupę tylko tych platform, z którymi można wejść w interakcję. 
+Gracz sprawdza kolizje tylko z tą dynamicznie generowaną grupą.
+
+### Zarządzanie Stanami Gry: 
+Gra posiada wiele ekranów **(menu, gra, pauza, ranking)**. Początkowo prowadziło to do skomplikowanych warunków **if/else**. 
+Wprowadzenie **Enum** dla **GameState** i oparcie głównej pętli na tej maszynie stanów znacząco uprościło kod i uczyniło go bardziej czytelnym
 
 
 ### Kluczowe Elementy Fragmentu
