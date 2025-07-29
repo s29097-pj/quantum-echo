@@ -47,14 +47,13 @@ class GameState(Enum):
     RANKING = 9
     TRAINING_COMPLETE = 10
 
-
 # Inicjalizacja ekranu
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("Quantum Echo - Manipuluj Czasem!")
 clock = pygame.time.Clock()
 
 # Ścieżka do czcionki
-# Zakładam, że pełna nazwa pliku to 'VT323-Regular.ttf'
+# Pełna nazwa pliku to 'VT323-Regular.ttf'
 FONT_PATH = os.path.join(os.path.dirname(__file__), 'fonts', 'VT323-Regular.ttf')
 
 # Czcionki w stylu pixel art
@@ -218,7 +217,6 @@ class LevelBackground:
         # Narysuj chmury
         for cloud in self.clouds:
             surface.blit(cloud['surface'], cloud['pos'])
-
 
 # System cząsteczek dla efektów wizualnych
 class Particle:
@@ -1091,8 +1089,8 @@ def main():
     player = None
     echo = None
     particle_system = ParticleSystem()
-    starfield = Starfield(200, SCREEN_WIDTH, SCREEN_HEIGHT) # Inicjalizacja tła gwiazd
-    is_training_mode = False # Tryb treningowy (dla poziomów 1-4)
+    starfield = Starfield(200, SCREEN_WIDTH, SCREEN_HEIGHT)
+    is_training_mode = False
 
     # Statystyki całej gry
     level_time = 0
@@ -1116,7 +1114,27 @@ def main():
     swap_cooldown = 0
     SWAP_COOLDOWN_FRAMES = 180
 
-    # Inicjalizacja Pygame
+    # --- OBSŁUGA KONTROLERA XBOX ---
+    pygame.joystick.init()
+    joysticks = []
+    for i in range(pygame.joystick.get_count()):
+        try:
+            joystick = pygame.joystick.Joystick(i)
+            joystick.init()
+            joysticks.append(joystick)
+        except pygame.error as e:
+            print(f"Błąd inicjalizacji kontrolera {i}: {e}")
+    controller = joysticks[0] if joysticks else None
+    if controller:
+        print(f"Wykryto kontroler: {controller.get_name()}")
+    DEAD_ZONE = 0.1
+
+    # Zmienne dla kontrolera
+    controller_jump_pressed = False
+    controller_swap_pressed = False
+    controller_pause_pressed = False
+    controller_menu_pressed = False
+
     def start_level(level_filename, level_idx, training=False):
         nonlocal current_level, player, echo, is_on_second_life, player_history, level_time, state, swap_cooldown, current_level_filename, is_training_mode, swap_count
         script_dir = os.path.dirname(__file__)
@@ -1124,7 +1142,6 @@ def main():
         level_data = load_level(level_path)
         is_training_mode = training
 
-        # Sprawdź, czy dane poziomu zostały poprawnie wczytane
         if level_data:
             current_level_filename = level_filename
             current_level = Level(level_data, level_idx)
@@ -1138,15 +1155,63 @@ def main():
             state = GameState.PLAYING
         else:
             state = GameState.MENU
-            nonlocal current_level_index
             current_level_index = -1
 
     running = True
     while running:
+        # --- OBSŁUGA KONTROLERA XBOX ---
+        controller_left = False
+        controller_right = False
+        controller_jump_current = False
+        controller_swap_current = False
+        controller_pause_current = False
+        controller_menu_current = False
+
+        if controller:
+            # Gałka analogowa
+            left_x = controller.get_axis(0)
+            if left_x < -DEAD_ZONE:
+                controller_left = True
+            elif left_x > DEAD_ZONE:
+                controller_right = True
+
+            # Przyciski
+            controller_jump_current = controller.get_button(0)  # A
+            controller_swap_current = controller.get_button(2)  # X
+            controller_pause_current = controller.get_button(7)  # Start
+            controller_menu_current = controller.get_button(6)  # Back
+
         # --- Obsługa zdarzeń ---
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+
+            # --- OBSŁUGA KONTROLERA XBOX ---
+            elif event.type == pygame.JOYDEVICEADDED:
+                joysticks = []
+                for i in range(pygame.joystick.get_count()):
+                    try:
+                        joystick = pygame.joystick.Joystick(i)
+                        joystick.init()
+                        joysticks.append(joystick)
+                    except pygame.error as e:
+                        print(f"Błąd inicjalizacji kontrolera {i}: {e}")
+                controller = joysticks[0] if joysticks else None
+                if controller:
+                    print(f"Kontroler podłączony: {controller.get_name()}")
+
+            elif event.type == pygame.JOYDEVICEREMOVED:
+                joysticks = []
+                for i in range(pygame.joystick.get_count()):
+                    try:
+                        joystick = pygame.joystick.Joystick(i)
+                        joystick.init()
+                        joysticks.append(joystick)
+                    except pygame.error as e:
+                        print(f"Błąd inicjalizacji kontrolera {i}: {e}")
+                controller = joysticks[0] if joysticks else None
+                if not controller:
+                    print("Kontroler odłączony")
 
             # Obsługa zdarzeń klawiatury
             elif event.type == pygame.KEYDOWN:
@@ -1158,14 +1223,14 @@ def main():
                     elif state == GameState.MENU:
                         running = False
 
-                # Jeśli wprowadzanie nazwy gracza jest aktywne
+                # --- Obsługa przycisków w menu ---
                 elif event.key == pygame.K_r and state == GameState.GAME_OVER:
                     if current_level_filename:
                         if not is_training_mode:
                             restart_penalty += 50
                         start_level(current_level_filename, current_level_index, training=is_training_mode)
 
-                # Jeśli wprowadzanie nazwy gracza jest aktywne
+                # --- Obsługa przycisków w różnych stanach gry ---
                 elif event.key == pygame.K_SPACE:
                     if state == GameState.MENU:
                         current_level_index = 0
@@ -1182,8 +1247,10 @@ def main():
                             input_active = True
                     elif state == GameState.PLAYING and player:
                         player.jump()
+                    elif state == GameState.TRAINING_COMPLETE:
+                        state = GameState.MENU
 
-                # Obsługa innych klawiszy
+                # --- Obsługa Zamiany Kwantowej ---
                 elif event.key == pygame.K_q and state == GameState.PLAYING:
                     if player and echo and swap_cooldown == 0 and not is_on_second_life:
                         player.rect, echo.rect = echo.rect, player.rect
@@ -1192,7 +1259,7 @@ def main():
                         particle_system.add_burst(player.rect.centerx, player.rect.centery, PURPLE, 40)
                         particle_system.add_burst(echo.rect.centerx, echo.rect.centery, PURPLE, 40)
 
-                # Obsługa przełączania stanu gry
+                # --- Obsługa innych klawiszy ---
                 elif event.key == pygame.K_i and state == GameState.MENU:
                     state = GameState.INSTRUCTIONS
 
@@ -1202,7 +1269,7 @@ def main():
                 elif event.key == pygame.K_r and state == GameState.MENU:
                     state = GameState.RANKING
 
-                # Obsługa stanu pauzy
+                # --- Obsługa poziomów w trybie treningowym ---
                 elif state == GameState.LEVEL_SELECT:
                     new_index = -1
                     if event.key == pygame.K_1: new_index = 0
@@ -1213,14 +1280,13 @@ def main():
                         current_level_index = new_index
                         start_level(LEVEL_ORDER[current_level_index], current_level_index, training=True)
 
-                # Obsługa stanu instrukcji
                 elif state == GameState.TRAINING_COMPLETE:
                     if event.key == pygame.K_l:
                         state = GameState.LEVEL_SELECT
                     elif event.key == pygame.K_ESCAPE:
                         state = GameState.MENU
 
-                # Obsługa wprowadzania nazwy gracza
+                # --- Obsługa wprowadzania nazwy gracza ---
                 elif state == GameState.GAME_COMPLETE and input_active:
                     if event.key == pygame.K_RETURN:
                         if player_name:
@@ -1234,69 +1300,139 @@ def main():
                     elif len(player_name) < 12:
                         player_name += event.unicode
 
+        # --- OBSŁUGA PRZYCISKÓW KONTROLERA (naciśnięcie) ---
+        if controller:
+            # Menu/ESC (Back button)
+            if controller_menu_current and not controller_menu_pressed:
+                if state == GameState.PLAYING:
+                    state = GameState.PAUSED
+                elif state in [GameState.PAUSED, GameState.INSTRUCTIONS, GameState.LEVEL_SELECT, GameState.GAME_OVER, GameState.RANKING, GameState.LEVEL_COMPLETE, GameState.TRAINING_COMPLETE]:
+                    state = GameState.MENU
+                elif state == GameState.MENU:
+                    running = False
+
+            # Skok/Akcja (A button)
+            if controller_jump_current and not controller_jump_pressed:
+                if state == GameState.MENU:
+                    current_level_index = 0
+                    score, deaths, restart_penalty, total_swap_count = 0, 0, 0, 0
+                    start_level(LEVEL_ORDER[current_level_index], current_level_index, training=False)
+                elif state == GameState.PAUSED:
+                    state = GameState.PLAYING
+                elif state == GameState.LEVEL_COMPLETE:
+                    current_level_index += 1
+                    if current_level_index < len(LEVEL_ORDER):
+                        start_level(LEVEL_ORDER[current_level_index], current_level_index, training=False)
+                    else:
+                        state = GameState.GAME_COMPLETE
+                        input_active = True
+                elif state == GameState.PLAYING and player:
+                    player.jump()
+                elif state == GameState.TRAINING_COMPLETE:
+                    state = GameState.MENU
+
+            # Zamiana kwantowa (X button)
+            if controller_swap_current and not controller_swap_pressed and state == GameState.PLAYING:
+                if player and echo and swap_cooldown == 0 and not is_on_second_life:
+                    player.rect, echo.rect = echo.rect, player.rect
+                    swap_cooldown = SWAP_COOLDOWN_FRAMES
+                    swap_count += 1
+                    particle_system.add_burst(player.rect.centerx, player.rect.centery, PURPLE, 40)
+                    particle_system.add_burst(echo.rect.centerx, echo.rect.centery, PURPLE, 40)
+
+            # Pauza (Start button)
+            if controller_pause_current and not controller_pause_pressed:
+                if state == GameState.PLAYING:
+                    state = GameState.PAUSED
+                elif state == GameState.PAUSED:
+                    state = GameState.PLAYING
+                elif state == GameState.GAME_OVER and current_level_filename:
+                    if not is_training_mode:
+                        restart_penalty += 50
+                    start_level(current_level_filename, current_level_index, training=is_training_mode)
+
+        # Aktualizuj stan przycisków
+        controller_jump_pressed = controller_jump_current
+        controller_swap_pressed = controller_swap_current
+        controller_pause_pressed = controller_pause_current
+        controller_menu_pressed = controller_menu_current
+
         # --- Aktualizacja logiki gry ---
         player_vel_x_for_parallax = 0
         if state == GameState.PLAYING and player and current_level:
-            level_time += 1 # Aktualizuj czas poziomu
-            if swap_cooldown > 0: # Zmniejsz czas odnowienia Zamiany Kwantowej
-                swap_cooldown -= 1 # Zmniejsz cooldown
+            level_time += 1
+            if swap_cooldown > 0:
+                swap_cooldown -= 1
 
-            keys = pygame.key.get_pressed() # Pobierz aktualny stan klawiszy
-            player.handle_input(keys) # Obsługa wejścia gracza
-            player_vel_x_for_parallax = player.vel_x # Przechowuj prędkość gracza dla efektu paralaksy
+            keys = pygame.key.get_pressed()
 
-            solid_platforms = current_level.get_solid_platforms() # Pobierz solidne platformy
-            result = player.update(solid_platforms, current_level.hazards, # Aktualizacja gracza
-                                               current_level.collectibles, current_level.keys)
+            # --- INTEGRACJA KONTROLERA Z RUCHEM ---
+            # Bezpieczniejsza integracja kontrolera
+            left_pressed = keys[pygame.K_LEFT] or keys[pygame.K_a] or controller_left
+            right_pressed = keys[pygame.K_RIGHT] or keys[pygame.K_d] or controller_right
 
-            # Sprawdź, czy gracz ma drugie życie
+            # Tworzymy własny obiekt klawiszy
+            class KeyState:
+                def __getitem__(self, key):
+                    if key == pygame.K_LEFT or key == pygame.K_a:
+                        return left_pressed
+                    elif key == pygame.K_RIGHT or key == pygame.K_d:
+                        return right_pressed
+                    # Dla innych klawiszy zwracamy False (lub oryginalną wartość jeśli istnieje)
+                    return False
+
+            # --- Aktualizacja gracza ---
+            player.handle_input(KeyState())
+            player_vel_x_for_parallax = player.vel_x
+
+            # Sprawdzenie, czy gracz ma drugie życie
             if not is_on_second_life:
                 player_history.append(player.rect.topleft)
 
-            # Sprawdź kolizje i efekty
+            # Ograniczenie historii gracza do ostatnich ECHO_DELAY_FRAMES
+            solid_platforms = current_level.get_solid_platforms()
+            result = player.update(solid_platforms, current_level.hazards,
+                                 current_level.collectibles, current_level.keys)
+
+            # Sprawdzenie, czy gracz zginął lub zebrał przedmiot
             if result == "hit" or result == "fell":
                 if not is_on_second_life and echo:
-                    # Gracz ma drugie życie - przełącza się na Echo
                     is_on_second_life = True
                     particle_system.add_burst(player.rect.centerx, player.rect.centery, CYAN, 50)
 
-                    # Przenieś statusy (power-upy, itp.) do Echa
+                    # Przeniesienie stanu gracza do Echa
                     echo.has_double_jump = player.has_double_jump
                     echo.invincible = player.invincible
                     echo.invincible_timer = player.invincible_timer
 
-                    # Echo staje się nowym graczem
+                    # Przeniesienie historii gracza do Echa
                     player, echo = echo, player
                     player.is_echo = False
                     player.color = BLUE
                     player.image.fill(player.color)
 
-                    # Usuń echo, aby zniknęło z ekranu
-                    echo = None
+                    echo = None # Usuń Echo, aby nie było już aktywne
                 else:
-                    # Ostateczna śmierć gracza
                     if not is_training_mode:
                         deaths += 1
                     particle_system.add_burst(player.rect.centerx, player.rect.centery, RED, 30)
                     state = GameState.GAME_OVER
 
-            # Sprawdź, czy gracz zebrał przedmioty
+            # Sprawdzenie, czy gracz zebrał przedmiot
             elif result == "gem":
                 if not is_training_mode: score += 100
                 particle_system.add_burst(player.rect.centerx, player.rect.centery, YELLOW, 15)
 
-            # Sprawdź, czy gracz zebrał podwójny skok
             elif result == "double_jump":
                 if not is_training_mode: score += 50
                 particle_system.add_burst(player.rect.centerx, player.rect.centery, PURPLE, 20)
 
-            # Sprawdź, czy gracz ma tarczę
             elif result == "shield":
                 particle_system.add_burst(player.rect.centerx, player.rect.centery, ORANGE, 25)
 
+            # Sprawdzenie, czy gracz zebrał klucz
             current_level.update(player_vel_x_for_parallax)
 
-            # Aktualizacja Echa, jeśli istnieje
             if echo:
                 history_pos = None
                 if len(player_history) > ECHO_DELAY_FRAMES:
@@ -1305,21 +1441,22 @@ def main():
 
             particle_system.update()
 
-            # Sprawdź, czy gracz dotarł do strefy wyjścia
+            # Sprawdzenie, czy gracz dotarł do strefy wyjścia
             if player.rect.colliderect(current_level.exit_zone.rect) and not current_level.exit_zone.locked:
-                            if is_training_mode:
-                                state = GameState.TRAINING_COMPLETE
-                            else:
-                                state = GameState.LEVEL_COMPLETE
-                                score += 1000
-                                total_swap_count += swap_count
-                                particle_system.add_burst(player.rect.centerx, player.rect.centery, GREEN, 100)
+                if is_training_mode:
+                    state = GameState.TRAINING_COMPLETE
+                else:
+                    state = GameState.LEVEL_COMPLETE
+                    score += 1000
+                    total_swap_count += swap_count
+                    particle_system.add_burst(player.rect.centerx, player.rect.centery, GREEN, 100)
         else:
             starfield.update(1)
 
         # --- Rysowanie ---
         screen.fill(BLACK)
 
+        # Rysowanie tła
         if state == GameState.PLAYING:
             if current_level: current_level.draw(screen)
             if player: player.draw(screen)
@@ -1328,65 +1465,59 @@ def main():
             gems_left = len([c for c in current_level.collectibles if c.type == "gem"])
             draw_hud(screen, player, gems_left, not is_on_second_life, level_time, swap_cooldown)
 
+        # --- Rysowanie innych stanów gry ---
         elif state == GameState.MENU:
             starfield.draw(screen)
 
-            # Kolory dla tekstu w stylu pixel art
+            # Rysowanie tekstu w menu
             text_color = (230, 230, 240)
             shadow_color = (40, 40, 50)
             highlight_color = CYAN
 
-            # Tytuł gry
+            # Rysowanie tytułu gry
             draw_pixel_text(screen, "Quantum Echo", font_large, (SCREEN_WIDTH // 2, 200), PURPLE, shadow_color)
             draw_pixel_text(screen, "Manipuluj czasem!", font_medium, (SCREEN_WIDTH // 2, 280), highlight_color, shadow_color)
 
-            # Opcje menu
-            draw_pixel_text(screen, "SPACE - Rozpocznij grę", font_medium, (SCREEN_WIDTH // 2, 400), text_color, shadow_color)
+            draw_pixel_text(screen, "SPACE/A - Rozpocznij grę", font_medium, (SCREEN_WIDTH // 2, 400), text_color, shadow_color)
             draw_pixel_text(screen, "I - Instrukcje", font_medium, (SCREEN_WIDTH // 2, 450), text_color, shadow_color)
             draw_pixel_text(screen, "L - Wybór poziomu (trening)", font_medium, (SCREEN_WIDTH // 2, 500), text_color, shadow_color)
             draw_pixel_text(screen, "R - Ranking", font_medium, (SCREEN_WIDTH // 2, 550), text_color, shadow_color)
-            draw_pixel_text(screen, "ESC - Wyjście", font_medium, (SCREEN_WIDTH // 2, 600), text_color, shadow_color)
+            draw_pixel_text(screen, "ESC/Back - Wyjście", font_medium, (SCREEN_WIDTH // 2, 600), text_color, shadow_color)
 
-            # Informacja o produkcji
             draw_pixel_text(screen, "Produkcja: Cybermich 2025", font_small, (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 40), GRAY, shadow_color)
 
-
-        # Instrukcje
+        # Rysowanie instrukcji
         elif state == GameState.INSTRUCTIONS:
             starfield.draw(screen)
-            # Definiujemy kolory, których będziemy używać
             text_color = (230, 230, 240)
             shadow_color = (40, 40, 50)
-            highlight_color = CYAN  # Kolor do wyróżnienia nagłówków
+            highlight_color = CYAN
 
-            # Używamy draw_pixel_text dla spójnego wyglądu z cieniem
             draw_pixel_text(screen, "Instrukcje", font_large, (SCREEN_WIDTH // 2, 100), YELLOW, shadow_color)
 
             instructions = [
-                "Sterowanie:", "A/D lub Strzałki - Ruch", "SPACJA - Skok", "",
+                "Sterowanie:", "A/D lub Strzałki/Gałka - Ruch", "SPACJA/A - Skok", "",
                 "Mechaniki Kwantowe:",
-                "Q - Zamiana z Echem. Użyj jej, by uciec z opresji!",
+                "Q/X - Zamiana z Echem. Użyj jej, by uciec z opresji!",
                 "Twoje Echo podąża za Tobą z 10-sekundowym opóźnieniem.",
-                "Gdy zginiesz, przejmiesz nad nim kontrolę!", "",
-                "ESC - Powrót do menu"
+                "Gdy zginiesz, przejmujesz nad nim kontrolę!", "",
+                "ESC/Back - Powrót do menu"
             ]
             y = 220
             for line in instructions:
-                # Wybierz kolor w zależności od treści linii
                 if line in ["Sterowanie:", "Mechaniki Kwantowe:"]:
                     current_color = highlight_color
-                elif line == "ESC - Powrót do menu":
-                    current_color = ORANGE  # Specjalny kolor dla tej linii
+                elif line == "ESC/Back - Powrót do menu":
+                    current_color = ORANGE
                 else:
                     current_color = text_color
 
-                # Rysuj tekst, ale tylko jeśli linia nie jest pusta
                 if line:
                     draw_pixel_text(screen, line, font_small, (SCREEN_WIDTH // 2, y), current_color, shadow_color)
 
                 y += 35
 
-        # Wybór poziomu
+        # Poziomy gry
         elif state == GameState.LEVEL_SELECT:
             starfield.draw(screen)
             draw_text("Wybierz poziom:", font_large, GREEN, screen, SCREEN_WIDTH // 2, 100, center=True)
@@ -1395,8 +1526,9 @@ def main():
             draw_text("2 Poziom: Wyzwanie", font_medium, WHITE, screen, SCREEN_WIDTH // 2, 300, center=True)
             draw_text("3 Poziom: Wspinaczka", font_medium, WHITE, screen, SCREEN_WIDTH // 2, 350, center=True)
             draw_text("4 Poziom: Kwantowa Studnia", font_medium, WHITE, screen, SCREEN_WIDTH // 2, 400, center=True)
-            draw_text("ESC - Powrót do menu", font_small, ORANGE, screen, SCREEN_WIDTH // 2, 550, center=True)
+            draw_text("ESC/Back - Powrót do menu", font_small, ORANGE, screen, SCREEN_WIDTH // 2, 550, center=True)
 
+        # Pauza
         elif state == GameState.PAUSED:
             if current_level: current_level.draw(screen)
             if player: player.draw(screen)
@@ -1408,21 +1540,22 @@ def main():
             pause_overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT)); pause_overlay.set_alpha(180); pause_overlay.fill(BLACK)
             screen.blit(pause_overlay, (0, 0))
             draw_text("PAUZA", font_large, WHITE, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 100, center=True)
-            draw_text("SPACJA - Kontynuuj", font_medium, WHITE, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2, center=True)
-            draw_text("ESC - Wyjdź do Menu", font_medium, WHITE, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 50, center=True)
+            draw_text("SPACE/A - Kontynuuj", font_medium, WHITE, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2, center=True)
+            draw_text("ESC/Back - Wyjdź do Menu", font_medium, WHITE, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 50, center=True)
 
         elif state == GameState.GAME_OVER:
             starfield.draw(screen)
             draw_text("KONIEC GRY", font_large, RED, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 100, center=True)
             if is_training_mode:
                 draw_text("Tryb Treningowy", font_medium, CYAN, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2, center=True)
-                draw_text("R - Restart Poziomu", font_medium, WHITE, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 150, center=True)
+                draw_text("R/Start - Restart Poziomu", font_medium, WHITE, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 150, center=True)
             else:
                 draw_text(f"Wynik: {score - restart_penalty}", font_medium, WHITE, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2, center=True)
                 draw_text(f"Śmierci: {deaths}", font_medium, WHITE, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 50, center=True)
-                draw_text("R - Restart Poziomu (-50 pkt)", font_medium, WHITE, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 150, center=True)
-            draw_text("ESC - Menu Główne", font_medium, WHITE, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 200, center=True)
+                draw_text("R/Start - Restart Poziomu (-50 pkt)", font_medium, WHITE, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 150, center=True)
+            draw_text("ESC/Back - Menu Główne", font_medium, WHITE, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 200, center=True)
 
+        # --- Wyświetlanie wyników poziomu ---
         elif state == GameState.LEVEL_COMPLETE:
             starfield.draw(screen)
             y_pos = SCREEN_HEIGHT // 2 - 150
@@ -1437,16 +1570,18 @@ def main():
                 y_pos += 50
                 draw_text(f"Kara za restarty: -{restart_penalty} pkt", font_medium, RED, screen, SCREEN_WIDTH // 2, y_pos, center=True)
             y_pos += 40
-            draw_text("SPACE - Następny poziom", font_medium, WHITE, screen, SCREEN_WIDTH // 2, y_pos, center=True)
+            draw_text("SPACE/A - Następny poziom", font_medium, WHITE, screen, SCREEN_WIDTH // 2, y_pos, center=True)
             y_pos += 50
-            draw_text("ESC - Wyjdź do Menu", font_medium, WHITE, screen, SCREEN_WIDTH // 2, y_pos, center=True)
+            draw_text("ESC/Back - Wyjdź do Menu", font_medium, WHITE, screen, SCREEN_WIDTH // 2, y_pos, center=True)
 
+        # --- Tryb treningowy ---
         elif state == GameState.TRAINING_COMPLETE:
             starfield.draw(screen)
             draw_text("TRENING UKOŃCZONY", font_large, GREEN, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 100, center=True)
             draw_text("L - Wybierz inny poziom", font_medium, WHITE, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 50, center=True)
-            draw_text("ESC - Powrót do menu", font_medium, WHITE, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 100, center=True)
+            draw_text("ESC/Back - Powrót do menu", font_medium, WHITE, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 100, center=True)
 
+        # --- Podsumowanie gry ---
         elif state == GameState.GAME_COMPLETE:
             starfield.draw(screen)
             y_pos = SCREEN_HEIGHT // 2 - 200
@@ -1469,6 +1604,7 @@ def main():
             y_pos += 80
             draw_text("Naciśnij ENTER, aby zapisać", font_small, WHITE, screen, SCREEN_WIDTH // 2, y_pos, center=True)
 
+        # Ranking
         elif state == GameState.RANKING:
             starfield.draw(screen)
             y_pos = 100
@@ -1483,10 +1619,10 @@ def main():
                     draw_text(rank_text, font_medium, WHITE, screen, SCREEN_WIDTH // 2 - 150, y_pos)
                     draw_text(score_text, font_medium, WHITE, screen, SCREEN_WIDTH // 2 + 150, y_pos)
                     y_pos += 50
-            draw_text("ESC - Powrót do menu", font_medium, WHITE, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT - 100, center=True)
+            draw_text("ESC/Back - Powrót do menu", font_medium, WHITE, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT - 100, center=True)
 
-        pygame.display.flip() # Odśwież ekran
-        clock.tick(FPS) # Ustaw liczbę klatek na sekundę
+        pygame.display.flip()
+        clock.tick(FPS)
 
     pygame.quit()
 
