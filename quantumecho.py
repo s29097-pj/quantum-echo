@@ -1069,7 +1069,6 @@ def draw_pixel_text(surface, text, font, center_pos, text_color, shadow_color, s
     surface.blit(text_surf, text_rect)
     return text_rect
 
-
 # Główna funkcja gry
 def main():
     # Kolejność poziomów i plik rankingu
@@ -1134,6 +1133,8 @@ def main():
     controller_swap_pressed = False
     controller_pause_pressed = False
     controller_menu_pressed = False
+    controller_instructions_pressed = False  # Przycisk Y
+    controller_ranking_pressed = False      # Przycisk B
 
     # --- FUNKCJA DO OBSŁUGI WIBRACJI ---
     def set_vibration(controller, left_motor=0.0, right_motor=0.0, duration=250):
@@ -1146,7 +1147,7 @@ def main():
             try:
                 controller.rumble(left_motor, right_motor, duration)
             except AttributeError:
-                # Starsze wersje pygame mogą nie mieć metody rumble
+                # Obsługa starszych wersji Pygame lub innych kontrolerów
                 pass
 
     # Funkcja do rozpoczęcia poziomu
@@ -1181,6 +1182,8 @@ def main():
         controller_swap_current = False
         controller_pause_current = False
         controller_menu_current = False
+        controller_instructions_current = False
+        controller_ranking_current = False
 
         if controller:
             # Gałka analogowa
@@ -1195,6 +1198,8 @@ def main():
             controller_swap_current = controller.get_button(2)  # X
             controller_pause_current = controller.get_button(7)  # Start
             controller_menu_current = controller.get_button(6)  # Back
+            controller_instructions_current = controller.get_button(3) # Y
+            controller_ranking_current = controller.get_button(1)      # B
 
         # --- Obsługa zdarzeń ---
         for event in pygame.event.get():
@@ -1243,6 +1248,7 @@ def main():
                     if current_level_filename:
                         if not is_training_mode:
                             restart_penalty += 50
+                            deaths += 1
                         start_level(current_level_filename, current_level_index, training=is_training_mode)
 
                 # --- Obsługa przycisków w różnych stanach gry ---
@@ -1273,6 +1279,7 @@ def main():
                         swap_count += 1
                         particle_system.add_burst(player.rect.centerx, player.rect.centery, PURPLE, 40)
                         particle_system.add_burst(echo.rect.centerx, echo.rect.centery, PURPLE, 40)
+                        set_vibration(controller, left_motor=0.5, right_motor=0.5, duration=300)
 
                 # --- Obsługa innych klawiszy ---
                 elif event.key == pygame.K_i and state == GameState.MENU:
@@ -1346,6 +1353,15 @@ def main():
                 elif state == GameState.TRAINING_COMPLETE:
                     state = GameState.MENU
 
+            # Obsługa pozostałych opcji w menu
+            if state == GameState.MENU:
+                if controller_instructions_current and not controller_instructions_pressed:
+                    state = GameState.INSTRUCTIONS
+                if controller_swap_current and not controller_swap_pressed: # X button
+                    state = GameState.LEVEL_SELECT
+                if controller_ranking_current and not controller_ranking_pressed: # B button
+                    state = GameState.RANKING
+
             # Zamiana kwantowa (X button)
             if controller_swap_current and not controller_swap_pressed and state == GameState.PLAYING:
                 if player and echo and swap_cooldown == 0 and not is_on_second_life:
@@ -1366,6 +1382,7 @@ def main():
                 elif state == GameState.GAME_OVER and current_level_filename:
                     if not is_training_mode:
                         restart_penalty += 50
+                        deaths += 1
                     start_level(current_level_filename, current_level_index, training=is_training_mode)
 
         # Aktualizuj stan przycisków
@@ -1373,6 +1390,8 @@ def main():
         controller_swap_pressed = controller_swap_current
         controller_pause_pressed = controller_pause_current
         controller_menu_pressed = controller_menu_current
+        controller_instructions_pressed = controller_instructions_current
+        controller_ranking_pressed = controller_ranking_current
 
         # --- Aktualizacja logiki gry ---
         player_vel_x_for_parallax = 0
@@ -1405,6 +1424,8 @@ def main():
             # Sprawdzenie, czy gracz ma drugie życie
             if not is_on_second_life:
                 player_history.append(player.rect.topleft)
+                if len(player_history) > ECHO_DELAY_FRAMES + 1:
+                    player_history.popleft()
 
             # Ograniczenie historii gracza do ostatnich ECHO_DELAY_FRAMES
             solid_platforms = current_level.get_solid_platforms()
@@ -1507,9 +1528,9 @@ def main():
             draw_pixel_text(screen, "Manipuluj czasem!", font_medium, (SCREEN_WIDTH // 2, 280), highlight_color, shadow_color)
 
             draw_pixel_text(screen, "SPACE/A - Rozpocznij grę", font_medium, (SCREEN_WIDTH // 2, 400), text_color, shadow_color)
-            draw_pixel_text(screen, "I - Instrukcje", font_medium, (SCREEN_WIDTH // 2, 450), text_color, shadow_color)
-            draw_pixel_text(screen, "L - Wybór poziomu (trening)", font_medium, (SCREEN_WIDTH // 2, 500), text_color, shadow_color)
-            draw_pixel_text(screen, "R - Ranking", font_medium, (SCREEN_WIDTH // 2, 550), text_color, shadow_color)
+            draw_pixel_text(screen, "I/Y - Instrukcje", font_medium, (SCREEN_WIDTH // 2, 450), text_color, shadow_color)
+            draw_pixel_text(screen, "L/X - Wybór poziomu (trening)", font_medium, (SCREEN_WIDTH // 2, 500), text_color, shadow_color)
+            draw_pixel_text(screen, "R/B - Ranking", font_medium, (SCREEN_WIDTH // 2, 550), text_color, shadow_color)
             draw_pixel_text(screen, "ESC/Back - Wyjście", font_medium, (SCREEN_WIDTH // 2, 600), text_color, shadow_color)
 
             draw_pixel_text(screen, "Produkcja: Cybermich 2025", font_small, (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 40), GRAY, shadow_color)
