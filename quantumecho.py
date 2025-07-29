@@ -1069,6 +1069,7 @@ def draw_pixel_text(surface, text, font, center_pos, text_color, shadow_color, s
     surface.blit(text_surf, text_rect)
     return text_rect
 
+
 # Główna funkcja gry
 def main():
     # Kolejność poziomów i plik rankingu
@@ -1134,7 +1135,14 @@ def main():
     controller_pause_pressed = False
     controller_menu_pressed = False
     controller_instructions_pressed = False  # Przycisk Y
-    controller_ranking_pressed = False      # Przycisk B
+    controller_ranking_pressed = False  # Przycisk B
+    controller_dpad_y_pressed = False  # Do nawigacji góra/dół w menu
+
+    # Zmienne dla menu nawigacji
+    menu_selected_index = 0
+    menu_key_cooldown = 0
+    level_select_selected_index = 0
+    level_select_cooldown = 0
 
     # --- FUNKCJA DO OBSŁUGI WIBRACJI ---
     def set_vibration(controller, left_motor=0.0, right_motor=0.0, duration=250):
@@ -1184,6 +1192,8 @@ def main():
         controller_menu_current = False
         controller_instructions_current = False
         controller_ranking_current = False
+        controller_up = False
+        controller_down = False
 
         if controller:
             # Gałka analogowa
@@ -1193,13 +1203,25 @@ def main():
             elif left_x > DEAD_ZONE:
                 controller_right = True
 
+            # D-Pad (często jako "hat")
+            if controller.get_numhats() > 0:
+                hat_x, hat_y = controller.get_hat(0)
+                if hat_x == -1:
+                    controller_left = True
+                elif hat_x == 1:
+                    controller_right = True
+                if hat_y == 1:
+                    controller_up = True
+                elif hat_y == -1:
+                    controller_down = True
+
             # Przyciski
             controller_jump_current = controller.get_button(0)  # A
             controller_swap_current = controller.get_button(2)  # X
             controller_pause_current = controller.get_button(7)  # Start
             controller_menu_current = controller.get_button(6)  # Back
-            controller_instructions_current = controller.get_button(3) # Y
-            controller_ranking_current = controller.get_button(1)      # B
+            controller_instructions_current = controller.get_button(3)  # Y
+            controller_ranking_current = controller.get_button(1)  # B
 
         # --- Obsługa zdarzeń ---
         for event in pygame.event.get():
@@ -1238,7 +1260,9 @@ def main():
                 if event.key == pygame.K_ESCAPE:
                     if state == GameState.PLAYING:
                         state = GameState.PAUSED
-                    elif state in [GameState.PAUSED, GameState.INSTRUCTIONS, GameState.LEVEL_SELECT, GameState.GAME_OVER, GameState.RANKING, GameState.LEVEL_COMPLETE, GameState.TRAINING_COMPLETE]:
+                    elif state in [GameState.PAUSED, GameState.INSTRUCTIONS, GameState.LEVEL_SELECT,
+                                   GameState.GAME_OVER, GameState.RANKING, GameState.LEVEL_COMPLETE,
+                                   GameState.TRAINING_COMPLETE]:
                         state = GameState.MENU
                     elif state == GameState.MENU:
                         running = False
@@ -1294,10 +1318,14 @@ def main():
                 # --- Obsługa poziomów w trybie treningowym ---
                 elif state == GameState.LEVEL_SELECT:
                     new_index = -1
-                    if event.key == pygame.K_1: new_index = 0
-                    elif event.key == pygame.K_2: new_index = 1
-                    elif event.key == pygame.K_3: new_index = 2
-                    elif event.key == pygame.K_4: new_index = 3
+                    if event.key == pygame.K_1:
+                        new_index = 0
+                    elif event.key == pygame.K_2:
+                        new_index = 1
+                    elif event.key == pygame.K_3:
+                        new_index = 2
+                    elif event.key == pygame.K_4:
+                        new_index = 3
                     if new_index != -1:
                         current_level_index = new_index
                         start_level(LEVEL_ORDER[current_level_index], current_level_index, training=True)
@@ -1328,7 +1356,8 @@ def main():
             if controller_menu_current and not controller_menu_pressed:
                 if state == GameState.PLAYING:
                     state = GameState.PAUSED
-                elif state in [GameState.PAUSED, GameState.INSTRUCTIONS, GameState.LEVEL_SELECT, GameState.GAME_OVER, GameState.RANKING, GameState.LEVEL_COMPLETE, GameState.TRAINING_COMPLETE]:
+                elif state in [GameState.PAUSED, GameState.INSTRUCTIONS, GameState.LEVEL_SELECT, GameState.GAME_OVER,
+                               GameState.RANKING, GameState.LEVEL_COMPLETE, GameState.TRAINING_COMPLETE]:
                     state = GameState.MENU
                 elif state == GameState.MENU:
                     running = False
@@ -1357,9 +1386,9 @@ def main():
             if state == GameState.MENU:
                 if controller_instructions_current and not controller_instructions_pressed:
                     state = GameState.INSTRUCTIONS
-                if controller_swap_current and not controller_swap_pressed: # X button
+                if controller_swap_current and not controller_swap_pressed:  # X button
                     state = GameState.LEVEL_SELECT
-                if controller_ranking_current and not controller_ranking_pressed: # B button
+                if controller_ranking_current and not controller_ranking_pressed:  # B button
                     state = GameState.RANKING
 
             # Zamiana kwantowa (X button)
@@ -1430,7 +1459,7 @@ def main():
             # Ograniczenie historii gracza do ostatnich ECHO_DELAY_FRAMES
             solid_platforms = current_level.get_solid_platforms()
             result = player.update(solid_platforms, current_level.hazards,
-                                 current_level.collectibles, current_level.keys)
+                                   current_level.collectibles, current_level.keys)
 
             # Sprawdzenie, czy gracz zginął lub zebrał przedmiot
             if result == "hit" or result == "fell":
@@ -1452,7 +1481,7 @@ def main():
                     player.color = BLUE
                     player.image.fill(player.color)
 
-                    echo = None # Usuń Echo, aby nie było już aktywne
+                    echo = None  # Usuń Echo, aby nie było już aktywne
                 else:
                     if not is_training_mode:
                         deaths += 1
@@ -1518,22 +1547,67 @@ def main():
         elif state == GameState.MENU:
             starfield.draw(screen)
 
-            # Rysowanie tekstu w menu
+            # --- Menu z nawigacją ---
+            menu_options = [
+                {"text": "SPACE/A - Rozpocznij grę", "action": "start"},
+                {"text": "I/Y - Instrukcje", "action": "instructions"},
+                {"text": "L/X - Wybór poziomu (trening)", "action": "level_select"},
+                {"text": "R/B - Ranking", "action": "ranking"},
+                {"text": "ESC/Back - Wyjście", "action": "exit"}
+            ]
+
+            # Obsługa nawigacji w menu (klawiatura i kontroler)
+            if menu_key_cooldown > 0:
+                menu_key_cooldown -= 1
+
+            # Obsługa D-Pad / strzałek góra/dół
+            keys = pygame.key.get_pressed()
+            if (keys[pygame.K_DOWN] or controller_down) and menu_key_cooldown == 0:
+                menu_selected_index = (menu_selected_index + 1) % len(menu_options)
+                menu_key_cooldown = 10
+            if (keys[pygame.K_UP] or controller_up) and menu_key_cooldown == 0:
+                menu_selected_index = (menu_selected_index - 1) % len(menu_options)
+                menu_key_cooldown = 10
+
+            # Obsługa potwierdzenia opcji (ENTER / A)
+            if keys[pygame.K_RETURN] or keys[pygame.K_SPACE] or (controller and controller.get_button(0)):
+                if menu_key_cooldown == 0:  # Zapobiegaj podwójnemu wyborowi
+                    selected = menu_options[menu_selected_index]["action"]
+                    if selected == "start":
+                        current_level_index = 0
+                        score, deaths, restart_penalty, total_swap_count = 0, 0, 0, 0
+                        start_level(LEVEL_ORDER[current_level_index], current_level_index, training=False)
+                    elif selected == "instructions":
+                        state = GameState.INSTRUCTIONS
+                        menu_selected_index = 0  # Resetuj wybór przy wyjściu z menu
+                    elif selected == "level_select":
+                        state = GameState.LEVEL_SELECT
+                        level_select_selected_index = 0  # Resetuj wybór poziomu
+                    elif selected == "ranking":
+                        state = GameState.RANKING
+                    elif selected == "exit":
+                        running = False
+                    menu_key_cooldown = 10  # Zapobiegaj natychmiastowemu ponownemu wyborowi
+
+            # --- Rysowanie menu ---
             text_color = (230, 230, 240)
             shadow_color = (40, 40, 50)
             highlight_color = CYAN
 
-            # Rysowanie tytułu gry
-            draw_pixel_text(screen, "Quantum Echo", font_large, (SCREEN_WIDTH // 2, 200), PURPLE, shadow_color)
-            draw_pixel_text(screen, "Manipuluj czasem!", font_medium, (SCREEN_WIDTH // 2, 280), highlight_color, shadow_color)
+            draw_pixel_text(screen, "Quantum Echo", font_large, (SCREEN_WIDTH // 2, 150), PURPLE, shadow_color)
+            draw_pixel_text(screen, "Manipuluj czasem!", font_medium, (SCREEN_WIDTH // 2, 230), highlight_color,
+                            shadow_color)
 
-            draw_pixel_text(screen, "SPACE/A - Rozpocznij grę", font_medium, (SCREEN_WIDTH // 2, 400), text_color, shadow_color)
-            draw_pixel_text(screen, "I/Y - Instrukcje", font_medium, (SCREEN_WIDTH // 2, 450), text_color, shadow_color)
-            draw_pixel_text(screen, "L/X - Wybór poziomu (trening)", font_medium, (SCREEN_WIDTH // 2, 500), text_color, shadow_color)
-            draw_pixel_text(screen, "R/B - Ranking", font_medium, (SCREEN_WIDTH // 2, 550), text_color, shadow_color)
-            draw_pixel_text(screen, "ESC/Back - Wyjście", font_medium, (SCREEN_WIDTH // 2, 600), text_color, shadow_color)
+            # Rysowanie opcji menu
+            menu_y_start = 320
+            menu_y_spacing = 50
+            for i, option in enumerate(menu_options):
+                color = highlight_color if i == menu_selected_index else text_color
+                draw_pixel_text(screen, option["text"], font_medium,
+                                (SCREEN_WIDTH // 2, menu_y_start + i * menu_y_spacing), color, shadow_color)
 
-            draw_pixel_text(screen, "Produkcja: Cybermich 2025", font_small, (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 40), GRAY, shadow_color)
+            draw_pixel_text(screen, "Produkcja: Cybermich 2025", font_small, (SCREEN_WIDTH // 2, SCREEN_HEIGHT - 40),
+                            GRAY, shadow_color)
 
         # Rysowanie instrukcji
         elif state == GameState.INSTRUCTIONS:
@@ -1569,13 +1643,49 @@ def main():
         # Poziomy gry
         elif state == GameState.LEVEL_SELECT:
             starfield.draw(screen)
+
+            # Obsługa nawigacji w wyborze poziomów
+            level_options = [
+                {"text": "1 Poziom: Pierwsze kroki", "level": 0},
+                {"text": "2 Poziom: Wyzwanie", "level": 1},
+                {"text": "3 Poziom: Wspinaczka", "level": 2},
+                {"text": "4 Poziom: Kwantowa Studnia", "level": 3}
+            ]
+
+            if level_select_cooldown > 0:
+                level_select_cooldown -= 1
+
+            # Obsługa D-Pad / strzałek góra/dół w wyborze poziomów
+            keys = pygame.key.get_pressed()
+            if (keys[pygame.K_DOWN] or controller_down) and level_select_cooldown == 0:
+                level_select_selected_index = (level_select_selected_index + 1) % len(level_options)
+                level_select_cooldown = 10
+            if (keys[pygame.K_UP] or controller_up) and level_select_cooldown == 0:
+                level_select_selected_index = (level_select_selected_index - 1) % len(level_options)
+                level_select_cooldown = 10
+
+            # Obsługa potwierdzenia wyboru poziomu
+            if keys[pygame.K_RETURN] or keys[pygame.K_SPACE] or (controller and controller.get_button(0)):
+                if level_select_cooldown == 0:
+                    selected_level = level_options[level_select_selected_index]["level"]
+                    current_level_index = selected_level
+                    start_level(LEVEL_ORDER[current_level_index], current_level_index, training=True)
+                    level_select_cooldown = 10
+
             draw_text("Wybierz poziom:", font_large, GREEN, screen, SCREEN_WIDTH // 2, 100, center=True)
-            draw_text("Tryb Treningowy pozwala na naukę mechanik gry", font_medium, GRAY, screen, SCREEN_WIDTH // 2, 150, center=True)
-            draw_text("1 Poziom: Pierwsze kroki", font_medium, WHITE, screen, SCREEN_WIDTH // 2, 250, center=True)
-            draw_text("2 Poziom: Wyzwanie", font_medium, WHITE, screen, SCREEN_WIDTH // 2, 300, center=True)
-            draw_text("3 Poziom: Wspinaczka", font_medium, WHITE, screen, SCREEN_WIDTH // 2, 350, center=True)
-            draw_text("4 Poziom: Kwantowa Studnia", font_medium, WHITE, screen, SCREEN_WIDTH // 2, 400, center=True)
-            draw_text("ESC/Back - Powrót do menu", font_small, ORANGE, screen, SCREEN_WIDTH // 2, 550, center=True)
+            draw_text("Tryb Treningowy pozwala na naukę mechanik gry", font_medium, GRAY, screen, SCREEN_WIDTH // 2,
+                      150, center=True)
+
+            # Rysowanie opcji poziomów z podświetleniem
+            y_start = 250
+            y_spacing = 60
+            for i, option in enumerate(level_options):
+                color = CYAN if i == level_select_selected_index else WHITE
+                draw_text(option["text"], font_medium, color, screen, SCREEN_WIDTH // 2, y_start + i * y_spacing,
+                          center=True)
+
+            draw_text("ESC/Back - Powrót do menu", font_small, ORANGE, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT - 100,
+                      center=True)
 
         # Pauza
         elif state == GameState.PAUSED:
@@ -1586,23 +1696,33 @@ def main():
             gems_left = len([c for c in current_level.collectibles if c.type == "gem"]) if current_level else 0
             if player: draw_hud(screen, player, gems_left, not is_on_second_life, level_time, swap_cooldown)
 
-            pause_overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT)); pause_overlay.set_alpha(180); pause_overlay.fill(BLACK)
+            pause_overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT));
+            pause_overlay.set_alpha(180);
+            pause_overlay.fill(BLACK)
             screen.blit(pause_overlay, (0, 0))
             draw_text("PAUZA", font_large, WHITE, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 100, center=True)
-            draw_text("SPACE/A - Kontynuuj", font_medium, WHITE, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2, center=True)
-            draw_text("ESC/Back - Wyjdź do Menu", font_medium, WHITE, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 50, center=True)
+            draw_text("SPACE/A - Kontynuuj", font_medium, WHITE, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2,
+                      center=True)
+            draw_text("ESC/Back - Wyjdź do Menu", font_medium, WHITE, screen, SCREEN_WIDTH // 2,
+                      SCREEN_HEIGHT // 2 + 50, center=True)
 
         elif state == GameState.GAME_OVER:
             starfield.draw(screen)
             draw_text("KONIEC GRY", font_large, RED, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 100, center=True)
             if is_training_mode:
-                draw_text("Tryb Treningowy", font_medium, CYAN, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2, center=True)
-                draw_text("R/Start - Restart Poziomu", font_medium, WHITE, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 150, center=True)
+                draw_text("Tryb Treningowy", font_medium, CYAN, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2,
+                          center=True)
+                draw_text("R/Start - Restart Poziomu", font_medium, WHITE, screen, SCREEN_WIDTH // 2,
+                          SCREEN_HEIGHT // 2 + 150, center=True)
             else:
-                draw_text(f"Wynik: {score - restart_penalty}", font_medium, WHITE, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2, center=True)
-                draw_text(f"Śmierci: {deaths}", font_medium, WHITE, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 50, center=True)
-                draw_text("R/Start - Restart Poziomu (-50 pkt)", font_medium, WHITE, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 150, center=True)
-            draw_text("ESC/Back - Menu Główne", font_medium, WHITE, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 200, center=True)
+                draw_text(f"Wynik: {score - restart_penalty}", font_medium, WHITE, screen, SCREEN_WIDTH // 2,
+                          SCREEN_HEIGHT // 2, center=True)
+                draw_text(f"Śmierci: {deaths}", font_medium, WHITE, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 50,
+                          center=True)
+                draw_text("R/Start - Restart Poziomu (-50 pkt)", font_medium, WHITE, screen, SCREEN_WIDTH // 2,
+                          SCREEN_HEIGHT // 2 + 150, center=True)
+            draw_text("ESC/Back - Menu Główne", font_medium, WHITE, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 200,
+                      center=True)
 
         # --- Wyświetlanie wyników poziomu ---
         elif state == GameState.LEVEL_COMPLETE:
@@ -1610,14 +1730,16 @@ def main():
             y_pos = SCREEN_HEIGHT // 2 - 150
             draw_text("POZIOM UKOŃCZONY!", font_large, GREEN, screen, SCREEN_WIDTH // 2, y_pos, center=True)
             y_pos += 80
-            draw_text(f"Wynik: {score - restart_penalty}", font_medium, WHITE, screen, SCREEN_WIDTH // 2, y_pos, center=True)
+            draw_text(f"Wynik: {score - restart_penalty}", font_medium, WHITE, screen, SCREEN_WIDTH // 2, y_pos,
+                      center=True)
             y_pos += 50
             draw_text(f"Czas: {level_time // 60}s", font_medium, WHITE, screen, SCREEN_WIDTH // 2, y_pos, center=True)
             y_pos += 50
             draw_text(f"Użyte zamiany: {swap_count}", font_medium, WHITE, screen, SCREEN_WIDTH // 2, y_pos, center=True)
             if restart_penalty > 0:
                 y_pos += 50
-                draw_text(f"Kara za restarty: -{restart_penalty} pkt", font_medium, RED, screen, SCREEN_WIDTH // 2, y_pos, center=True)
+                draw_text(f"Kara za restarty: -{restart_penalty} pkt", font_medium, RED, screen, SCREEN_WIDTH // 2,
+                          y_pos, center=True)
             y_pos += 40
             draw_text("SPACE/A - Następny poziom", font_medium, WHITE, screen, SCREEN_WIDTH // 2, y_pos, center=True)
             y_pos += 50
@@ -1626,9 +1748,12 @@ def main():
         # --- Tryb treningowy ---
         elif state == GameState.TRAINING_COMPLETE:
             starfield.draw(screen)
-            draw_text("TRENING UKOŃCZONY", font_large, GREEN, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 100, center=True)
-            draw_text("L - Wybierz inny poziom", font_medium, WHITE, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 50, center=True)
-            draw_text("ESC/Back - Powrót do menu", font_medium, WHITE, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 100, center=True)
+            draw_text("TRENING UKOŃCZONY", font_large, GREEN, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 100,
+                      center=True)
+            draw_text("L - Wybierz inny poziom", font_medium, WHITE, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 50,
+                      center=True)
+            draw_text("ESC/Back - Powrót do menu", font_medium, WHITE, screen, SCREEN_WIDTH // 2,
+                      SCREEN_HEIGHT // 2 + 100, center=True)
 
         # --- Podsumowanie gry ---
         elif state == GameState.GAME_COMPLETE:
@@ -1636,20 +1761,24 @@ def main():
             y_pos = SCREEN_HEIGHT // 2 - 200
             draw_text("GRATULACJE!", font_large, GREEN, screen, SCREEN_WIDTH // 2, y_pos, center=True)
             y_pos += 80
-            draw_text("Ukończyłeś wszystkie poziomy!", font_medium, WHITE, screen, SCREEN_WIDTH // 2, y_pos, center=True)
+            draw_text("Ukończyłeś wszystkie poziomy!", font_medium, WHITE, screen, SCREEN_WIDTH // 2, y_pos,
+                      center=True)
             y_pos += 80
             final_score = score - restart_penalty
-            draw_text(f"Ostateczny wynik: {final_score}", font_medium, YELLOW, screen, SCREEN_WIDTH // 2, y_pos, center=True)
+            draw_text(f"Ostateczny wynik: {final_score}", font_medium, YELLOW, screen, SCREEN_WIDTH // 2, y_pos,
+                      center=True)
             y_pos += 50
             draw_text(f"Suma śmierci: {deaths}", font_medium, WHITE, screen, SCREEN_WIDTH // 2, y_pos, center=True)
             y_pos += 50
-            draw_text(f"Suma zamian: {total_swap_count}", font_medium, WHITE, screen, SCREEN_WIDTH // 2, y_pos, center=True)
+            draw_text(f"Suma zamian: {total_swap_count}", font_medium, WHITE, screen, SCREEN_WIDTH // 2, y_pos,
+                      center=True)
             y_pos += 80
             draw_text("Wpisz swoje imię:", font_medium, WHITE, screen, SCREEN_WIDTH // 2, y_pos, center=True)
             y_pos += 50
             input_box_rect = pygame.Rect(SCREEN_WIDTH // 2 - 150, y_pos, 300, 50)
             pygame.draw.rect(screen, WHITE, input_box_rect, 2)
-            draw_text(player_name, font_medium, WHITE, screen, input_box_rect.centerx, input_box_rect.centery, center=True)
+            draw_text(player_name, font_medium, WHITE, screen, input_box_rect.centerx, input_box_rect.centery,
+                      center=True)
             y_pos += 80
             draw_text("Naciśnij ENTER, aby zapisać", font_small, WHITE, screen, SCREEN_WIDTH // 2, y_pos, center=True)
 
@@ -1668,7 +1797,8 @@ def main():
                     draw_text(rank_text, font_medium, WHITE, screen, SCREEN_WIDTH // 2 - 150, y_pos)
                     draw_text(score_text, font_medium, WHITE, screen, SCREEN_WIDTH // 2 + 150, y_pos)
                     y_pos += 50
-            draw_text("ESC/Back - Powrót do menu", font_medium, WHITE, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT - 100, center=True)
+            draw_text("ESC/Back - Powrót do menu", font_medium, WHITE, screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT - 100,
+                      center=True)
 
         pygame.display.flip()
         clock.tick(FPS)
