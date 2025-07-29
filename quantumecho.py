@@ -1135,6 +1135,21 @@ def main():
     controller_pause_pressed = False
     controller_menu_pressed = False
 
+    # --- FUNKCJA DO OBSŁUGI WIBRACJI ---
+    def set_vibration(controller, left_motor=0.0, right_motor=0.0, duration=250):
+        """
+        Ustawia wibracje kontrolera Xbox.
+        left_motor, right_motor: wartości od 0.0 do 1.0
+        duration: czas trwania w milisekundach
+        """
+        if controller:
+            try:
+                controller.rumble(left_motor, right_motor, duration)
+            except AttributeError:
+                # Starsze wersje pygame mogą nie mieć metody rumble
+                pass
+
+    # Funkcja do rozpoczęcia poziomu
     def start_level(level_filename, level_idx, training=False):
         nonlocal current_level, player, echo, is_on_second_life, player_history, level_time, state, swap_cooldown, current_level_filename, is_training_mode, swap_count
         script_dir = os.path.dirname(__file__)
@@ -1339,6 +1354,8 @@ def main():
                     swap_count += 1
                     particle_system.add_burst(player.rect.centerx, player.rect.centery, PURPLE, 40)
                     particle_system.add_burst(echo.rect.centerx, echo.rect.centery, PURPLE, 40)
+                    # Dodaj wibracje przy zamianie kwantowej
+                    set_vibration(controller, left_motor=0.5, right_motor=0.5, duration=300)
 
             # Pauza (Start button)
             if controller_pause_current and not controller_pause_pressed:
@@ -1397,8 +1414,11 @@ def main():
             # Sprawdzenie, czy gracz zginął lub zebrał przedmiot
             if result == "hit" or result == "fell":
                 if not is_on_second_life and echo:
+                    # Gracz umiera, ale ma Echo
                     is_on_second_life = True
                     particle_system.add_burst(player.rect.centerx, player.rect.centery, CYAN, 50)
+                    # Dodaj wibracje przy śmierci
+                    set_vibration(controller, left_motor=0.5, right_motor=0.5, duration=500)
 
                     # Przeniesienie stanu gracza do Echa
                     echo.has_double_jump = player.has_double_jump
@@ -1415,6 +1435,8 @@ def main():
                 else:
                     if not is_training_mode:
                         deaths += 1
+                    # Dodaj wibracje przy śmierci
+                    set_vibration(controller, left_motor=1.0, right_motor=1.0, duration=800)
                     particle_system.add_burst(player.rect.centerx, player.rect.centery, RED, 30)
                     state = GameState.GAME_OVER
 
@@ -1422,13 +1444,19 @@ def main():
             elif result == "gem":
                 if not is_training_mode: score += 100
                 particle_system.add_burst(player.rect.centerx, player.rect.centery, YELLOW, 15)
+                # Dodaj wibracje przy zbieraniu klejnotu
+                set_vibration(controller, left_motor=0.3, right_motor=0.3, duration=200)
 
             elif result == "double_jump":
                 if not is_training_mode: score += 50
                 particle_system.add_burst(player.rect.centerx, player.rect.centery, PURPLE, 20)
+                # Dodaj wibracje przy podwójnym skoku
+                set_vibration(controller, left_motor=0.4, right_motor=0.4, duration=200)
 
             elif result == "shield":
                 particle_system.add_burst(player.rect.centerx, player.rect.centery, ORANGE, 25)
+                # Dodaj wibracje przy tarczy
+                set_vibration(controller, left_motor=0.5, right_motor=0.5, duration=300)
 
             # Sprawdzenie, czy gracz zebrał klucz
             current_level.update(player_vel_x_for_parallax)
