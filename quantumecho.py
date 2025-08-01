@@ -1069,6 +1069,19 @@ def draw_pixel_text(surface, text, font, center_pos, text_color, shadow_color, s
     surface.blit(text_surf, text_rect)
     return text_rect
 
+# Funkcja do rysowania wirtualnej klawiatury
+def draw_virtual_keyboard(surface, letters, selected_index, font, x, y, cell_size, selected_color, default_color):
+    rows = len(letters)
+    for row_idx, row_letters in enumerate(letters):
+        cols = len(row_letters)
+        for col_idx, letter in enumerate(row_letters):
+            color = selected_color if selected_index == (row_idx, col_idx) else default_color
+            # Oblicz pozycję na podstawie środka siatki
+            letter_x = x - (cols * cell_size) / 2 + (col_idx * cell_size) + cell_size / 2
+            letter_y = y + row_idx * cell_size
+            draw_text(letter, font, color, surface, letter_x, letter_y, center=True)
+
+
 
 # Główna funkcja gry
 def main():
@@ -1103,7 +1116,23 @@ def main():
     # Ranking i wprowadzanie nazwy gracza
     ranking = load_ranking(RANKING_FILE)
     player_name = ""
-    input_active = False
+    # Zmienne dla wirtualnej klawiatury
+    virtual_keyboard_active = False
+    letters = [
+        ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
+        ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'],
+        ['K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T'],
+        ['U', 'V', 'W', 'X', 'Y', 'Z', '.', '-', '_', '!'],
+        ['CAPS', 'DEL', 'END']
+    ]
+    vk_selected_index = (0, 0) # Indeks zaznaczonej litery wirtualnej klawiatury
+    vk_cooldown = 0
+    VK_COOLDOWN_FRAMES = 8 # Czas odświeżania wirtualnej klawiatury
+    is_caps_lock = True # Domyślnie włączony Caps Lock
+
+    # Zmienne dla migającego kursora
+    cursor_timer = 0
+    cursor_visible = True
 
     # Zmienne dla systemu drugiego życia
     is_on_second_life = False
@@ -1758,29 +1787,113 @@ def main():
         # --- Podsumowanie gry ---
         elif state == GameState.GAME_COMPLETE:
             starfield.draw(screen)
-            y_pos = SCREEN_HEIGHT // 2 - 200
+            if not virtual_keyboard_active:
+                virtual_keyboard_active = True # Aktywuj klawiaturę przy pierwszym wejściu
+
+            # --- Logika migającego kursora ---
+            cursor_timer += 1
+            if cursor_timer > FPS / 2: # Miganie co pół sekundy
+                cursor_visible = not cursor_visible
+                cursor_timer = 0
+                cursor_color = YELLOW if cursor_visible else BLACK
+
+            # --- Logika wirtualnej klawiatury ---
+            if vk_cooldown > 0:
+                vk_cooldown -= 1
+
+            if virtual_keyboard_active and controller and vk_cooldown == 0:
+                hat_x, hat_y = controller.get_hat(0) if controller.get_numhats() > 0 else (0, 0)
+                row, col = vk_selected_index
+
+                # Nawigacja D-padem
+                if hat_y == 1:  # Góra
+                    vk_selected_index = (max(0, row - 1), col)
+                    vk_cooldown = VK_COOLDOWN_FRAMES
+                elif hat_y == -1: # Dół
+                    vk_selected_index = (min(len(letters) - 1, row + 1), col)
+                    vk_cooldown = VK_COOLDOWN_FRAMES
+                elif hat_x == -1: # Lewo
+                    vk_selected_index = (row, max(0, col - 1))
+                    vk_cooldown = VK_COOLDOWN_FRAMES
+                elif hat_x == 1:  # Prawo
+                    vk_selected_index = (row, min(len(letters[row]) - 1, col + 1))
+                    vk_cooldown = VK_COOLDOWN_FRAMES
+
+                # Zatwierdzenie litery (przycisk A)
+                if controller.get_button(0) and not controller_jump_pressed:
+                    # Upewnij się, że indeks jest w granicach
+                    if row < len(letters) and col < len(letters[row]):
+                        selected_item = letters[row][col]
+
+                        if selected_item == 'CAPS':
+                            is_caps_lock = not is_caps_lock
+                        elif selected_item == 'DEL':
+                            player_name = player_name[:-1]
+                        elif selected_item == 'END':
+                            if player_name:
+                                final_score = score - restart_penalty
+                                ranking.append({"name": player_name, "score": final_score})
+                                save_ranking(RANKING_FILE, ranking)
+                                state = GameState.RANKING
+                                virtual_keyboard_active = False
+                        elif len(player_name) < 10:  # Ograniczenie długości imienia
+                            letter_to_add = selected_item
+                            if letter_to_add.isalpha(): # Sprawdź czy to litera
+                                player_name += letter_to_add.upper() if is_caps_lock else letter_to_add.lower()
+                            else: # Dla symboli jak '.', '-'
+                                player_name += letter_to_add
+
+                        vk_cooldown = VK_COOLDOWN_FRAMES * 2  # Dłuższy cooldown po akcji
+
+            # --- Rysowanie ekranu podsumowania ---
+            y_pos = 80
             draw_text("GRATULACJE!", font_large, GREEN, screen, SCREEN_WIDTH // 2, y_pos, center=True)
-            y_pos += 80
-            draw_text("Ukończyłeś wszystkie poziomy!", font_medium, WHITE, screen, SCREEN_WIDTH // 2, y_pos,
-                      center=True)
-            y_pos += 80
+            y_pos += 70
             final_score = score - restart_penalty
-            draw_text(f"Ostateczny wynik: {final_score}", font_medium, YELLOW, screen, SCREEN_WIDTH // 2, y_pos,
-                      center=True)
+            draw_text(f"Ostateczny wynik: {final_score}", font_medium, YELLOW, screen, SCREEN_WIDTH // 2, y_pos, center=True)
             y_pos += 50
             draw_text(f"Suma śmierci: {deaths}", font_medium, WHITE, screen, SCREEN_WIDTH // 2, y_pos, center=True)
             y_pos += 50
-            draw_text(f"Suma zamian: {total_swap_count}", font_medium, WHITE, screen, SCREEN_WIDTH // 2, y_pos,
-                      center=True)
+            draw_text(f"Suma zamian: {total_swap_count}", font_medium, WHITE, screen, SCREEN_WIDTH // 2, y_pos, center=True)
             y_pos += 80
             draw_text("Wpisz swoje imię:", font_medium, WHITE, screen, SCREEN_WIDTH // 2, y_pos, center=True)
             y_pos += 50
-            input_box_rect = pygame.Rect(SCREEN_WIDTH // 2 - 150, y_pos, 300, 50)
+
+            # Pole do wpisywania imienia z kursorem
+            input_box_rect = pygame.Rect(SCREEN_WIDTH // 2 - 200, y_pos, 400, 50)
             pygame.draw.rect(screen, WHITE, input_box_rect, 2)
-            draw_text(player_name, font_medium, WHITE, screen, input_box_rect.centerx, input_box_rect.centery,
-                      center=True)
-            y_pos += 80
-            draw_text("Naciśnij ENTER, aby zapisać", font_small, WHITE, screen, SCREEN_WIDTH // 2, y_pos, center=True)
+
+            # Rysuj tekst gracza
+            player_text_surf = font_medium.render(player_name, True, WHITE)
+            player_text_rect = player_text_surf.get_rect(center=input_box_rect.center)
+            screen.blit(player_text_surf, player_text_rect)
+
+            # Rysuj migający kursor na końcu tekstu
+            if cursor_visible:
+                cursor_x = player_text_rect.right + 2 if player_name else input_box_rect.centerx
+                cursor_y = input_box_rect.centery
+                cursor_rect = pygame.Rect(cursor_x, cursor_y - 20, 4, 40)
+                pygame.draw.rect(screen, WHITE, cursor_rect)
+
+            y_pos += 70
+
+            # Rysowanie wirtualnej klawiatury
+            if virtual_keyboard_active:
+                # Tworzenie tablicy liter do wyświetlenia na podstawie stanu Caps Lock
+                display_letters = []
+                for row_items in letters:
+                    new_row = []
+                    for item in row_items:
+                        if len(item) == 1 and item.isalpha(): # Zmieniaj tylko pojedyncze litery
+                            new_row.append(item.upper() if is_caps_lock else item.lower())
+                        else:
+                            new_row.append(item) # Zostaw 'DEL', 'END', 'CAPS' bez zmian
+                    display_letters.append(new_row)
+
+                draw_virtual_keyboard(screen, display_letters, vk_selected_index, font_medium, SCREEN_WIDTH // 2, y_pos, 60, YELLOW, WHITE)
+
+            y_pos += 300
+            draw_text("Wybierz END, aby zapisać", font_small, WHITE, screen, SCREEN_WIDTH // 2, y_pos, center=True)
 
         # Ranking
         elif state == GameState.RANKING:
