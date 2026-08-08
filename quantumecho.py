@@ -14,8 +14,8 @@ pygame.init()
 pygame.mixer.init()
 
 # Stałe
-SCREEN_WIDTH = 1024
-SCREEN_HEIGHT = 768
+SCREEN_WIDTH = 1280
+SCREEN_HEIGHT = 720
 FPS = 60
 GRAVITY = 0.8
 PLAYER_SPEED = 5
@@ -48,7 +48,7 @@ class GameState(Enum):
     TRAINING_COMPLETE = 10
 
 # Inicjalizacja ekranu
-screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.FULLSCREEN)
 pygame.display.set_caption("Quantum Echo - Manipuluj Czasem!")
 clock = pygame.time.Clock()
 
