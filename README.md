@@ -81,7 +81,7 @@ Projekt jest silnie zorientowany obiektowo, co ułatwia zarządzanie poszczegól
 
 ### 3. Projekt Sterowany Danymi (Data-Driven Design)
 Zamiast "hardkodować" poziomy w kodzie, gra wykorzystuje zewnętrzne pliki `.json` do ich definiowania.
-*   **Poziomy (`levels/*.json`)**: Każdy plik JSON opisuje pozycje i właściwości wszystkich platform, pułapek, przedmiotów, punktu startowego i końcowego. Pozwala to na niezwykle łatwe tworzenie, modyfikowanie i dodawanie nowych poziomów bez dotykania głównej logiki gry.
+*   **Poziomy (`quantumecho_game/levels/*.json`)**: Każdy plik JSON opisuje pozycje i właściwości wszystkich platform, pułapek, przedmiotów, punktu startowego i końcowego. Pozwala to na niezwykle łatwe tworzenie, modyfikowanie i dodawanie nowych poziomów bez dotykania głównej logiki gry.
 *   **Ranking (`ranking.json`)**: Najlepsze wyniki są przechowywane w pliku JSON, co pozwala na ich trwałe zapisywanie między sesjami gry.
 
 ### 4. Główna Pętla Gry (`main()`)

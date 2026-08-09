@@ -1,0 +1,39 @@
+"""Stałe konfiguracyjne gry."""
+
+from enum import Enum
+
+SCREEN_WIDTH = 1280
+SCREEN_HEIGHT = 720
+FPS = 60
+GRAVITY = 0.8
+PLAYER_SPEED = 5
+JUMP_FORCE = -15
+PLAYER_WIDTH = 40
+PLAYER_HEIGHT = 40
+
+BLACK = (0, 0, 0)
+WHITE = (255, 255, 255)
+BLUE = (100, 149, 237)
+RED = (255, 0, 0)
+GREEN = (0, 255, 0)
+YELLOW = (255, 255, 0)
+PURPLE = (147, 0, 211)
+CYAN = (0, 255, 255)
+ORANGE = (255, 165, 0)
+GRAY = (128, 128, 128)
+
+class GameState(Enum):
+    MENU = 1
+    PLAYING = 2
+    PAUSED = 3
+    LEVEL_COMPLETE = 4
+    GAME_OVER = 5
+    INSTRUCTIONS = 6
+    LEVEL_SELECT = 7
+    GAME_COMPLETE = 8
+    RANKING = 9
+    TRAINING_COMPLETE = 10
+    EDITOR = 11
+    LEVEL_BROWSER = 12
+    SETTINGS = 13
+    ARCADE = 14

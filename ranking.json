@@ -1,6 +1,14 @@
 [
     {
         "name": "Micha\u0142",
+        "score": 6000
+    },
+    {
+        "name": "Jan",
+        "score": 5800
+    },
+    {
+        "name": "Micha\u0142",
         "score": 5450
     },
     {
@@ -8,7 +16,15 @@
         "score": 5450
     },
     {
+        "name": "Jan",
+        "score": 5400
+    },
+    {
         "name": "Janusz",
         "score": 5350
+    },
+    {
+        "name": "Micha\u0142",
+        "score": 5000
     }
 ]

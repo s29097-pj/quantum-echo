@@ -1,0 +1,1 @@
+"""Moduły gry Quantum Echo."""

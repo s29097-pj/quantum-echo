@@ -1,0 +1,175 @@
+{
+    "platforms": [
+        {
+            "x": 0,
+            "y": 675,
+            "width": 150,
+            "height": 45
+        },
+        {
+            "x": 250,
+            "y": 609,
+            "width": 80,
+            "height": 19
+        },
+        {
+            "x": 100,
+            "y": 544,
+            "width": 80,
+            "height": 19
+        },
+        {
+            "x": 300,
+            "y": 469,
+            "width": 80,
+            "height": 19
+        },
+        {
+            "x": 450,
+            "y": 422,
+            "width": 150,
+            "height": 19,
+            "moving": true,
+            "move_range": 200
+        },
+        {
+            "x": 800,
+            "y": 328,
+            "width": 150,
+            "height": 19
+        },
+        {
+            "x": 650,
+            "y": 281,
+            "width": 100,
+            "height": 19
+        },
+        {
+            "x": 400,
+            "y": 234,
+            "width": 100,
+            "height": 19
+        },
+        {
+            "x": 200,
+            "y": 169,
+            "width": 100,
+            "height": 19
+        },
+        {
+            "x": 50,
+            "y": 253,
+            "width": 80,
+            "height": 19
+        },
+        {
+            "x": 800,
+            "y": 141,
+            "width": 200,
+            "height": 19
+        }
+    ],
+    "hazards": [
+        {
+            "x": 250,
+            "y": 656,
+            "width": 30,
+            "height": 28,
+            "type": "spike"
+        },
+        {
+            "x": 280,
+            "y": 656,
+            "width": 30,
+            "height": 28,
+            "type": "spike"
+        },
+        {
+            "x": 100,
+            "y": 591,
+            "width": 30,
+            "height": 28,
+            "type": "spike"
+        },
+        {
+            "x": 500,
+            "y": 394,
+            "width": 30,
+            "height": 28,
+            "type": "spike"
+        },
+        {
+            "x": 530,
+            "y": 394,
+            "width": 30,
+            "height": 28,
+            "type": "spike"
+        },
+        {
+            "x": 560,
+            "y": 394,
+            "width": 30,
+            "height": 28,
+            "type": "spike"
+        },
+        {
+            "x": 850,
+            "y": 112,
+            "width": 30,
+            "height": 28,
+            "type": "spike"
+        },
+        {
+            "x": 880,
+            "y": 112,
+            "width": 30,
+            "height": 28,
+            "type": "spike"
+        }
+    ],
+    "collectibles": [
+        {
+            "x": 325,
+            "y": 431,
+            "type": "double_jump"
+        },
+        {
+            "x": 850,
+            "y": 319,
+            "type": "shield"
+        },
+        {
+            "x": 125,
+            "y": 506,
+            "type": "gem"
+        },
+        {
+            "x": 250,
+            "y": 131,
+            "type": "gem"
+        },
+        {
+            "x": 675,
+            "y": 244,
+            "type": "gem"
+        }
+    ],
+    "buttons": [
+        {
+            "x": 75,
+            "y": 216,
+            "door": {
+                "x": 800,
+                "y": 47
+            }
+        }
+    ],
+    "start": {
+        "x": 50,
+        "y": 638
+    },
+    "end": {
+        "x": 900,
+        "y": 66
+    }
+}
